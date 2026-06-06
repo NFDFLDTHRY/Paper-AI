@@ -94,10 +94,11 @@ The demo walks through these four lessons exactly as on the worksheet:
 ## ✨ What’s inside the demo
 
 - 🎛️ **Editable vocabulary** — change any word’s number and watch everything recompute.
+- 🔭 **Live number line (Three.js)** — every word is a glowing orb at its value on a 0→1 line, with a pulsing **memory marker** that glides to the closest word: the “closest word wins” rule made visual.
 - 🏋️ **Training simulator** — every encoder step, every decoder step, and the **full candidate score table** at each one, with the winner and the target highlighted.
-- 🎚️ **Manual tuning sliders** — nudge the correct word until it wins, the way you would with a pencil and eraser.
+- 🎚️ **Manual tuning sliders** — nudge the correct word until it wins, the way you would with a pencil and eraser. Watch the orb slide on the number line as you drag.
 - 💬 **Inference playground** — build a message, press **Run the AI**, and watch the memory fill up and the reply come out word by word in a chat bubble.
-- 🌙 **Big, clear, dark-themed UI** — built with Tailwind CSS, all in **one self-contained file**.
+- 🌙 **Big, clear, dark-themed UI** — visuals powered by **Three.js**, readable content in hand-crafted CSS, all in **one self-contained file with no CDN or internet required**.
 
 ---
 
