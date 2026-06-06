@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Paper AI — Build a Chatbot With Pencil & Paper</title>
+<meta name="description" content="An interactive replica of the paper-based encoder–decoder chatbot worksheet. Run a tiny AI by hand, train it with score tables, and watch it talk." />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+          mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  /* Smooth, friendly scrolling and a soft glow background for the dark theme */
+  html { scroll-behavior: smooth; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(79,70,229,0.20), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(16,185,129,0.12), transparent 55%),
+      #0b1020;
+  }
+  .num-input::-webkit-outer-spin-button,
+  .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .num-input { -moz-appearance: textfield; }
+  .fade-in { animation: fade 0.35s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px);} to {opacity:1; transform:none;} }
+  .winner-row { box-shadow: inset 4px 0 0 0 #34d399; }
+  .target-badge { box-shadow: inset 4px 0 0 0 #818cf8; }
+</style>
+</head>
+<body class="font-sans text-slate-100 antialiased selection:bg-indigo-500/40">
+
+<!-- ============================ HERO ============================ -->
+<header class="max-w-5xl mx-auto px-5 pt-12 pb-6">
+  <div class="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-400/30 px-4 py-1.5 text-sm text-indigo-200 mb-6">
+    📝 A worksheet you can run by hand
+  </div>
+  <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-tight">
+    Paper&nbsp;AI
+    <span class="block text-2xl sm:text-3xl font-bold text-slate-300 mt-3">
+      Build a tiny chatbot with a pencil, paper, and one number called <span class="text-emerald-300">memory</span>.
+    </span>
+  </h1>
+  <p class="mt-6 text-lg sm:text-xl text-slate-300 max-w-3xl leading-relaxed">
+    A real AI chatbot has billions of numbers. Ours has <b>one</b>. We call it <b>memory</b>.
+    The chatbot reads your words, mixes them into its memory, and then says the word whose
+    secret number is <b>closest</b> to that memory. That's it. You can do every step with
+    a calculator. Let's go. 👇
+  </p>
+
+  <nav class="mt-8 flex flex-wrap gap-3 text-sm">
+    <a href="#rules" class="rounded-xl bg-slate-800/70 hover:bg-slate-700 border border-slate-700 px-4 py-2 font-semibold">① The Rules</a>
+    <a href="#vocab" class="rounded-xl bg-slate-800/70 hover:bg-slate-700 border border-slate-700 px-4 py-2 font-semibold">② Vocabulary</a>
+    <a href="#train" class="rounded-xl bg-slate-800/70 hover:bg-slate-700 border border-slate-700 px-4 py-2 font-semibold">③ Train it</a>
+    <a href="#play" class="rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 px-4 py-2 font-semibold text-emerald-200">④ Talk to it ▶</a>
+  </nav>
+</header>
+
+<main class="max-w-5xl mx-auto px-5 pb-24 space-y-16">
+
+  <!-- ============================ RULES ============================ -->
+  <section id="rules" class="scroll-mt-6">
+    <h2 class="text-2xl sm:text-3xl font-black mb-2">① The Rules <span class="text-slate-400 font-bold">(the whole brain)</span></h2>
+    <p class="text-slate-300 mb-6 max-w-3xl">Every word has a secret number between 0 and 1. The chatbot keeps one
+      running number, its <b>memory</b>. Here is everything it knows how to do:</p>
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div class="rounded-2xl bg-slate-900/60 border border-slate-700 p-6">
+        <div class="text-emerald-300 font-bold text-sm uppercase tracking-wide mb-2">Encoder — reads your message</div>
+        <p class="text-slate-300 mb-3">Start memory at <b>0.0</b>. For each word you type, update:</p>
+        <code class="block rounded-lg bg-black/40 border border-slate-700 p-3 font-mono text-emerald-200 text-sm">new_memory = 0.5 × current + 0.5 × input_word_value</code>
+        <p class="text-slate-400 text-sm mt-3">The final memory is the <b>context number</b> — a summary of your whole message.</p>
+      </div>
+
+      <div class="rounded-2xl bg-slate-900/60 border border-slate-700 p-6">
+        <div class="text-indigo-300 font-bold text-sm uppercase tracking-wide mb-2">Decoder — writes the reply</div>
+        <p class="text-slate-300 mb-3">Start memory at the <b>context number</b>. The first "previous word" is <span class="font-mono">&lt;START&gt;</span>. Each step:</p>
+        <code class="block rounded-lg bg-black/40 border border-slate-700 p-3 font-mono text-indigo-200 text-sm">new_memory = 0.5 × current + 0.5 × previous_word_value</code>
+        <p class="text-slate-400 text-sm mt-3">Then pick the word whose value is closest to memory. That word becomes the next "previous word."</p>
+      </div>
+
+      <div class="rounded-2xl bg-slate-900/60 border border-slate-700 p-6">
+        <div class="text-amber-300 font-bold text-sm uppercase tracking-wide mb-2">Score — how good is a word?</div>
+        <p class="text-slate-300 mb-3">For each possible word, the score is how close its value is to memory:</p>
+        <code class="block rounded-lg bg-black/40 border border-slate-700 p-3 font-mono text-amber-200 text-sm">score = −| memory − word_value |</code>
+        <p class="text-slate-400 text-sm mt-3">Closer = higher score (closer to 0). The <b>highest score wins</b> and gets spoken.</p>
+      </div>
+
+      <div class="rounded-2xl bg-slate-900/60 border border-slate-700 p-6">
+        <div class="text-rose-300 font-bold text-sm uppercase tracking-wide mb-2">Tie-breakers — exact ties only</div>
+        <ul class="text-slate-300 space-y-2 list-disc list-inside">
+          <li><b>First word</b> of the reply: prefer a <b>real word</b> over <span class="font-mono">&lt;END&gt;</span>.</li>
+          <li><b>Later words</b>: prefer <span class="font-mono">&lt;END&gt;</span> (so the chatbot knows when to stop talking).</li>
+        </ul>
+        <p class="text-slate-400 text-sm mt-3"><span class="font-mono">&lt;END&gt;</span> is the "I'm done" word. When it wins, the reply is finished.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ VOCABULARY ============================ -->
+  <section id="vocab" class="scroll-mt-6">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-2">
+      <h2 class="text-2xl sm:text-3xl font-black">② The Vocabulary <span class="text-slate-400 font-bold">(every word's secret number)</span></h2>
+      <button id="resetVocab" class="rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 text-sm font-semibold">↺ Reset to worksheet values</button>
+    </div>
+    <p class="text-slate-300 mb-6 max-w-3xl">These are the numbers we glued onto each word. You can change any of
+      them — every table on this page updates instantly. <span class="text-slate-400">(This is the "brain." Training just means picking good numbers.)</span></p>
+
+    <div class="rounded-2xl bg-slate-900/60 border border-slate-700 overflow-hidden">
+      <div id="vocabTable" class="divide-y divide-slate-800"></div>
+      <div class="p-4 bg-slate-900/40 flex flex-wrap items-center gap-3">
+        <input id="newWord" placeholder="new word…" class="bg-black/40 border border-slate-700 rounded-lg px-3 py-2 text-sm w-40 focus:outline-none focus:border-indigo-400" />
+        <input id="newVal" type="number" step="0.01" min="0" max="1" placeholder="0.00" class="num-input bg-black/40 border border-slate-700 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:border-indigo-400" />
+        <button id="addWord" class="rounded-lg bg-indigo-500 hover:bg-indigo-400 px-4 py-2 text-sm font-bold text-white">+ Add word</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ TRAINING ============================ -->
+  <section id="train" class="scroll-mt-6">
+    <h2 class="text-2xl sm:text-3xl font-black mb-2">③ Training <span class="text-slate-400 font-bold">(teacher forcing)</span></h2>
+    <p class="text-slate-300 mb-6 max-w-3xl">
+      To teach the chatbot a reply, we show it the <b>right answer</b> at every step (that's
+      "teacher forcing"). At each step we make the <b>full score table</b> for every word and check:
+      <i>did the correct word get the highest score?</i> If not, we nudge that word's number until it
+      wins. That nudging <b>is</b> the training. Pick a lesson:
+    </p>
+
+    <div id="pairTabs" class="flex flex-wrap gap-2 mb-6"></div>
+
+    <div id="trainPanel" class="space-y-6"></div>
+  </section>
+
+  <!-- ============================ PLAYGROUND ============================ -->
+  <section id="play" class="scroll-mt-6">
+    <h2 class="text-2xl sm:text-3xl font-black mb-2">④ Talk To It <span class="text-slate-400 font-bold">(inference playground)</span></h2>
+    <p class="text-slate-300 mb-6 max-w-3xl">Build a message out of the words below, then press <b>Run the AI</b>.
+      You'll see the encoder fill up its memory, then the decoder say words one at a time until it
+      decides it's done. No teacher this time — the chatbot is on its own.</p>
+
+    <div class="rounded-2xl bg-slate-900/60 border border-slate-700 p-6">
+      <div class="text-sm font-bold text-slate-400 uppercase tracking-wide mb-3">Your message</div>
+      <div id="msgBuilder" class="flex flex-wrap gap-2 min-h-[3rem] rounded-xl bg-black/30 border border-slate-700 p-3 mb-3"></div>
+      <div class="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Tap words to add them</div>
+      <div id="wordPalette" class="flex flex-wrap gap-2 mb-5"></div>
+      <div class="flex flex-wrap gap-3">
+        <button id="runInfer" class="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-6 py-3 font-black text-white text-lg">▶ Run the AI</button>
+        <button id="clearMsg" class="rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-3 font-semibold">Clear</button>
+      </div>
+    </div>
+
+    <div id="inferOutput" class="mt-6 space-y-6"></div>
+  </section>
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer class="border-t border-slate-800">
+  <div class="max-w-5xl mx-auto px-5 py-10 text-slate-400">
+    <p class="text-slate-300 text-lg font-semibold mb-2">That's the whole AI. 🎉</p>
+    <p class="max-w-3xl">Everything on this page is just the four rules at the top, repeated with a calculator.
+      A grown-up chatbot does the exact same thing — encode, keep a memory, score every word, pick the
+      best, stop at <span class="font-mono">&lt;END&gt;</span> — only with billions of numbers instead of one.
+      Now you know the secret. Go run one on paper. ✏️</p>
+    <p class="mt-6 text-sm text-slate-500">Paper AI · a single self-contained HTML worksheet · open it anywhere, no internet brain required.</p>
+  </div>
+</footer>
+
+<script>
+/* =====================================================================
+   PAPER AI — the entire chatbot engine, in plain JavaScript.
+   Nothing here is hidden: it is exactly the four rules from "The Rules".
+   ===================================================================== */
+
+const START = "<START>";
+const END = "<END>";
+
+// --- The worksheet's tuned vocabulary (defaults) ---
+const DEFAULT_VOCAB = [
+  { word: "Hello",       value: 0.40 },
+  { word: "Hi",          value: 0.20 },
+  { word: START,         value: 0.10 },
+  { word: END,           value: 0.00 },
+  { word: "Good morning",value: 0.22 },
+  { word: "Hey",         value: 0.18 },
+  { word: "How are you", value: 0.70 },
+  { word: "Welcome",     value: 0.60 },
+  { word: "Bye",         value: 0.80 },
+  { word: "Thanks",      value: 0.15 },
+];
+
+// --- The worksheet's training pairs (input word  →  target reply word) ---
+const PAIRS = [
+  { input: "Hello",        target: "Hi" },
+  { input: "Good morning", target: "Hey" },
+  { input: "How are you",  target: "Good morning" },
+  { input: "Hello",        target: "Thanks" },
+];
+
+// Live, editable state. We deep-copy the defaults so "Reset" always works.
+let vocab = DEFAULT_VOCAB.map(v => ({ ...v }));
+let activePair = 0;
+let message = []; // words the user is building in the playground
+
+// ---- tiny helpers ----
+const r2 = n => Math.round(n * 100) / 100;            // round to 2 dp for display
+const fmt = n => (Math.round(n * 100) / 100).toFixed(2);
+const valueOf = w => {
+  const hit = vocab.find(v => v.word === w);
+  return hit ? hit.value : 0;
+};
+// Real words = everything that is not a special token.
+const realWords = () => vocab.filter(v => v.word !== START && v.word !== END);
+
+// ===== ENCODER: read words, build the context number =====
+// Returns { context, steps:[{word, val, before, after}] }
+function encode(words) {
+  let mem = 0.0;
+  const steps = [];
+  for (const w of words) {
+    const before = mem;
+    const v = valueOf(w);
+    mem = 0.5 * before + 0.5 * v;
+    steps.push({ word: w, val: v, before, after: mem });
+  }
+  return { context: mem, steps };
+}
+
+// ===== SCORE TABLE: score every word against the current memory =====
+// candidates default to ALL vocab words except <START> (you never *say* <START>).
+function scoreTable(mem) {
+  return vocab
+    .filter(v => v.word !== START)
+    .map(v => ({
+      word: v.word,
+      val: v.value,
+      dist: Math.abs(mem - v.value),
+      score: -Math.abs(mem - v.value),
+    }));
+}
+
+// ===== PICK WINNER: highest score, with the worksheet's tie-breakers =====
+// stepIndex 0 = first word of the reply (prefer a real word on exact ties);
+// later steps prefer <END> on exact ties.
+function pickWinner(table, stepIndex) {
+  const EPS = 1e-9;
+  let best = table[0];
+  for (const row of table) {
+    if (row.score > best.score + EPS) {
+      best = row;                       // strictly better score
+    } else if (Math.abs(row.score - best.score) <= EPS) {
+      // exact tie -> apply the tie-breaker rule
+      if (stepIndex === 0) {
+        // first word: prefer a real word over <END>
+        if (best.word === END && row.word !== END) best = row;
+      } else {
+        // later words: prefer <END>
+        if (row.word === END && best.word !== END) best = row;
+      }
+    }
+  }
+  return best;
+}
+
+// ===== DECODER (teacher forcing): we FORCE the target as the previous word =====
+// Produces the sequence [target, <END>] and records the score table at each step.
+function decodeTeacherForced(context, target) {
+  const steps = [];
+  let mem = context;
+  let prev = START;
+  // We walk exactly two steps: say the target word, then say <END>.
+  const forcedOutputs = [target, END];
+  forcedOutputs.forEach((forced, i) => {
+    const before = mem;
+    const pv = valueOf(prev);
+    mem = 0.5 * before + 0.5 * pv;           // decoder update using previous word
+    const table = scoreTable(mem).sort((a, b) => b.score - a.score);
+    const winner = pickWinner(table, i);
+    steps.push({
+      stepIndex: i, prev, prevVal: pv, before, after: mem,
+      table, winner, forced,
+    });
+    prev = forced;                            // teacher forcing: feed the correct word next
+  });
+  return steps;
+}
+
+// ===== DECODER (free running): the chatbot is on its own at inference =====
+function decodeFree(context, maxLen = 5) {
+  const steps = [];
+  let mem = context;
+  let prev = START;
+  const said = [];
+  for (let i = 0; i < maxLen; i++) {
+    const before = mem;
+    const pv = valueOf(prev);
+    mem = 0.5 * before + 0.5 * pv;
+    const table = scoreTable(mem).sort((a, b) => b.score - a.score);
+    const winner = pickWinner(table, i);
+    steps.push({ stepIndex: i, prev, prevVal: pv, before, after: mem, table, winner });
+    if (winner.word === END) break;          // stop talking
+    said.push(winner.word);
+    prev = winner.word;
+  }
+  return { steps, said };
+}
+
+/* =====================================================================
+   RENDERING
+   ===================================================================== */
+
+// ---------- Vocabulary editor ----------
+function renderVocab() {
+  const host = document.getElementById("vocabTable");
+  host.innerHTML = "";
+  vocab.forEach((v, idx) => {
+    const special = v.word === START || v.word === END;
+    const row = document.createElement("div");
+    row.className = "flex items-center gap-3 p-3 sm:px-5 " + (special ? "bg-slate-800/40" : "");
+    row.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <span class="font-mono text-base ${special ? 'text-amber-300' : 'text-slate-100'} break-words">${escapeHtml(v.word)}</span>
+        ${special ? '<span class="ml-2 text-[11px] uppercase tracking-wide text-amber-400/80">special token</span>' : ''}
+      </div>
+      <input type="number" step="0.01" min="0" max="1" value="${fmt(v.value)}"
+             data-idx="${idx}" class="vocab-val num-input w-24 text-center bg-black/40 border border-slate-700 rounded-lg px-2 py-2 font-mono focus:outline-none focus:border-indigo-400" />
+      <button data-del="${idx}" class="del-word w-9 h-9 shrink-0 rounded-lg ${special ? 'opacity-30 cursor-not-allowed' : 'bg-rose-500/10 hover:bg-rose-500/25 text-rose-300'} border border-slate-700" ${special ? 'disabled' : ''} title="remove">✕</button>
+    `;
+    host.appendChild(row);
+  });
+
+  host.querySelectorAll(".vocab-val").forEach(inp => {
+    inp.addEventListener("input", e => {
+      const i = +e.target.dataset.idx;
+      let val = parseFloat(e.target.value);
+      if (isNaN(val)) val = 0;
+      vocab[i].value = val;
+      renderAll(false); // keep vocab inputs as-is so the user keeps typing
+    });
+  });
+  host.querySelectorAll(".del-word").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const i = +e.target.dataset.del;
+      vocab.splice(i, 1);
+      renderAll(true);
+    });
+  });
+}
+
+// ---------- A reusable score-table element ----------
+function scoreTableHtml(table, winner, target) {
+  const rows = table.map(row => {
+    const isWin = row.word === winner.word;
+    const isTarget = target && row.word === target;
+    const cls = [
+      "grid grid-cols-12 gap-2 px-3 py-2 items-center text-sm",
+      isWin ? "winner-row bg-emerald-500/10" : "",
+      isTarget && !isWin ? "target-badge bg-indigo-500/10" : "",
+    ].join(" ");
+    return `<div class="${cls}">
+      <div class="col-span-5 font-mono ${row.word===END||row.word===START?'text-amber-300':'text-slate-100'} break-words">${escapeHtml(row.word)}
+        ${isTarget ? '<span class="ml-1 text-[10px] uppercase text-indigo-300">target</span>' : ''}
+        ${isWin ? '<span class="ml-1 text-[10px] uppercase text-emerald-300">winner ✓</span>' : ''}
+      </div>
+      <div class="col-span-2 text-center font-mono text-slate-300">${fmt(row.val)}</div>
+      <div class="col-span-2 text-center font-mono text-slate-400">${fmt(row.dist)}</div>
+      <div class="col-span-3 text-right font-mono ${isWin?'text-emerald-300 font-bold':'text-slate-300'}">${row.score<=-0.000001?'−'+fmt(row.dist):'0.00'}</div>
+    </div>`;
+  }).join("");
+
+  return `<div class="rounded-xl border border-slate-700 overflow-hidden">
+    <div class="grid grid-cols-12 gap-2 px-3 py-2 bg-slate-800/70 text-[11px] uppercase tracking-wide text-slate-400 font-bold">
+      <div class="col-span-5">word</div>
+      <div class="col-span-2 text-center">value</div>
+      <div class="col-span-2 text-center">| mem − val |</div>
+      <div class="col-span-3 text-right">score</div>
+    </div>
+    ${rows}
+  </div>`;
+}
+
+// ---------- Encoder trace element ----------
+function encoderTraceHtml(enc, accent="emerald") {
+  const rows = enc.steps.map((s, i) => `
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-sm font-mono border-t border-slate-800">
+      <span class="text-slate-500">step ${i+1}</span>
+      <span class="text-slate-400">read</span>
+      <span class="text-slate-100 font-bold">"${escapeHtml(s.word)}"</span>
+      <span class="text-slate-500">(${fmt(s.val)})</span>
+      <span class="text-slate-500">→ 0.5×${fmt(s.before)} + 0.5×${fmt(s.val)} =</span>
+      <span class="text-${accent}-300 font-bold">${fmt(s.after)}</span>
+    </div>`).join("");
+  return `<div class="rounded-xl border border-slate-700 overflow-hidden">
+    <div class="px-3 py-2 bg-slate-800/70 text-[11px] uppercase tracking-wide text-slate-400 font-bold">Encoder · memory starts at 0.00</div>
+    ${rows}
+    <div class="px-3 py-2 border-t border-slate-700 bg-${accent}-500/10 text-sm font-mono">
+      context number = <span class="text-${accent}-300 font-bold text-base">${fmt(enc.context)}</span>
+    </div>
+  </div>`;
+}
+
+// ---------- Training panel ----------
+function renderPairTabs() {
+  const host = document.getElementById("pairTabs");
+  host.innerHTML = "";
+  PAIRS.forEach((p, i) => {
+    const b = document.createElement("button");
+    const on = i === activePair;
+    b.className = "rounded-xl px-4 py-2 text-sm font-bold border transition " +
+      (on ? "bg-indigo-500 border-indigo-400 text-white" : "bg-slate-800/70 border-slate-700 text-slate-300 hover:bg-slate-700");
+    b.innerHTML = `${escapeHtml(p.input)} <span class="opacity-60">→</span> ${escapeHtml(p.target)}`;
+    b.addEventListener("click", () => { activePair = i; renderTraining(); });
+    host.appendChild(b);
+  });
+}
+
+function renderTraining() {
+  renderPairTabs();
+  const p = PAIRS[activePair];
+  const enc = encode([p.input]);
+  const steps = decodeTeacherForced(enc.context, p.target);
+
+  // Does the target win its (first) step right now?
+  const firstStep = steps[0];
+  const targetWins = firstStep.winner.word === p.target;
+  const targetRow = firstStep.table.find(r => r.word === p.target);
+  const targetVocabIdx = vocab.findIndex(v => v.word === p.target);
+
+  const decoderHtml = steps.map(s => {
+    const label = s.stepIndex === 0
+      ? `Decoder step 1 · say the reply word`
+      : `Decoder step ${s.stepIndex+1} · should now say <END> and stop`;
+    return `
+      <div class="rounded-xl border border-slate-700 overflow-hidden">
+        <div class="px-3 py-2 bg-slate-800/70 text-[11px] uppercase tracking-wide text-slate-400 font-bold">${label}</div>
+        <div class="px-3 py-2 text-sm font-mono border-b border-slate-800">
+          previous word = <span class="text-amber-300">"${escapeHtml(s.prev)}"</span> (${fmt(s.prevVal)})
+          <span class="text-slate-500"> · memory: 0.5×${fmt(s.before)} + 0.5×${fmt(s.prevVal)} = </span>
+          <span class="text-indigo-300 font-bold">${fmt(s.after)}</span>
+        </div>
+        <div class="p-3">
+          ${scoreTableHtml(s.table, s.winner, s.stepIndex===0 ? p.target : null)}
+          <div class="mt-2 text-xs text-slate-400">
+            🍎 <b>Teacher forcing:</b> no matter what wins, we feed the correct word
+            <span class="font-mono text-slate-200">"${escapeHtml(s.forced)}"</span> in as the next "previous word."
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+
+  const statusHtml = targetWins
+    ? `<div class="rounded-xl bg-emerald-500/10 border border-emerald-400/40 p-4 text-emerald-200">
+         ✓ <b>Learned!</b> The correct word <span class="font-mono">"${escapeHtml(p.target)}"</span> has the top score. Nothing to fix.
+       </div>`
+    : `<div class="rounded-xl bg-amber-500/10 border border-amber-400/40 p-4 text-amber-100">
+         ✗ <b>Not yet.</b> Right now <span class="font-mono">"${escapeHtml(firstStep.winner.word)}"</span> wins, but we wanted
+         <span class="font-mono">"${escapeHtml(p.target)}"</span>. Memory is <b>${fmt(firstStep.after)}</b>, so slide
+         <span class="font-mono">"${escapeHtml(p.target)}"</span>'s value toward ${fmt(firstStep.after)} until it reaches the top. 👇
+       </div>`;
+
+  const tuner = targetVocabIdx >= 0 ? `
+    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <div class="font-bold">🎛️ Tune <span class="font-mono text-indigo-300">"${escapeHtml(p.target)}"</span> (the correct word)</div>
+        <div class="font-mono text-lg text-indigo-300" id="tuneReadout">${fmt(vocab[targetVocabIdx].value)}</div>
+      </div>
+      <input id="tuneSlider" type="range" min="0" max="1" step="0.01" value="${vocab[targetVocabIdx].value}"
+             class="w-full accent-indigo-500" />
+      <div class="flex justify-between text-xs text-slate-500 mt-1"><span>0.00</span><span>memory = ${fmt(firstStep.after)}</span><span>1.00</span></div>
+      <p class="text-xs text-slate-400 mt-2">Drag the slider — every table on the page updates live. This <b>is</b> training.</p>
+    </div>` : "";
+
+  document.getElementById("trainPanel").innerHTML = `
+    <div class="fade-in space-y-5">
+      <div class="rounded-2xl bg-slate-900/60 border border-slate-700 p-5 sm:p-6 space-y-5">
+        <div>
+          <div class="text-sm text-slate-400 mb-1">Lesson</div>
+          <div class="text-xl font-black">When I hear <span class="text-emerald-300">"${escapeHtml(p.input)}"</span>, reply <span class="text-indigo-300">"${escapeHtml(p.target)}"</span>.</div>
+        </div>
+        ${encoderTraceHtml(enc)}
+        ${decoderHtml}
+        ${statusHtml}
+        ${tuner}
+      </div>
+    </div>`;
+
+  // wire the tuner
+  const slider = document.getElementById("tuneSlider");
+  if (slider) {
+    slider.addEventListener("input", e => {
+      vocab[targetVocabIdx].value = parseFloat(e.target.value);
+      document.getElementById("tuneReadout").textContent = fmt(vocab[targetVocabIdx].value);
+      renderVocab();      // keep vocab table in sync
+      renderTraining();   // re-score everything
+    });
+  }
+}
+
+// ---------- Playground ----------
+function renderPalette() {
+  const host = document.getElementById("wordPalette");
+  host.innerHTML = "";
+  realWords().forEach(v => {
+    const b = document.createElement("button");
+    b.className = "rounded-lg bg-slate-800 hover:bg-indigo-500 border border-slate-600 px-3 py-2 text-sm font-semibold transition";
+    b.textContent = v.word;
+    b.addEventListener("click", () => { message.push(v.word); renderMessage(); });
+    host.appendChild(b);
+  });
+}
+
+function renderMessage() {
+  const host = document.getElementById("msgBuilder");
+  host.innerHTML = "";
+  if (message.length === 0) {
+    host.innerHTML = `<span class="text-slate-500 text-sm self-center">Tap words below to build a message…</span>`;
+    return;
+  }
+  message.forEach((w, i) => {
+    const chip = document.createElement("button");
+    chip.className = "rounded-lg bg-indigo-500/20 border border-indigo-400/40 text-indigo-100 px-3 py-2 text-sm font-semibold hover:bg-rose-500/20 hover:border-rose-400/40";
+    chip.innerHTML = `${escapeHtml(w)} <span class="opacity-60">✕</span>`;
+    chip.title = "remove";
+    chip.addEventListener("click", () => { message.splice(i, 1); renderMessage(); });
+    host.appendChild(chip);
+  });
+}
+
+function runInference() {
+  const out = document.getElementById("inferOutput");
+  if (message.length === 0) {
+    out.innerHTML = `<div class="rounded-xl bg-amber-500/10 border border-amber-400/40 p-4 text-amber-100">Add at least one word to your message first. 🙂</div>`;
+    return;
+  }
+  const enc = encode(message);
+  const dec = decodeFree(enc.context, 5);
+
+  const decoderHtml = dec.steps.map(s => `
+    <div class="rounded-xl border border-slate-700 overflow-hidden">
+      <div class="px-3 py-2 bg-slate-800/70 text-[11px] uppercase tracking-wide text-slate-400 font-bold">Decoder step ${s.stepIndex+1}</div>
+      <div class="px-3 py-2 text-sm font-mono border-b border-slate-800">
+        previous = <span class="text-amber-300">"${escapeHtml(s.prev)}"</span> (${fmt(s.prevVal)})
+        <span class="text-slate-500"> · 0.5×${fmt(s.before)} + 0.5×${fmt(s.prevVal)} = </span>
+        <span class="text-indigo-300 font-bold">${fmt(s.after)}</span>
+        <span class="text-slate-500"> · says </span><span class="text-emerald-300 font-bold">"${escapeHtml(s.winner.word)}"</span>
+      </div>
+      <div class="p-3">${scoreTableHtml(s.table, s.winner, null)}</div>
+    </div>`).join("");
+
+  const replyText = dec.said.length ? dec.said.join("  ·  ") : "(it said <END> immediately — no reply!)";
+
+  out.innerHTML = `
+    <div class="fade-in space-y-5">
+      <div class="rounded-2xl bg-slate-900/60 border border-slate-700 p-5 sm:p-6 space-y-5">
+        <div class="flex justify-end">
+          <div class="max-w-[80%] rounded-2xl rounded-br-sm bg-indigo-500 text-white px-4 py-3 font-semibold">${escapeHtml(message.join(" "))}</div>
+        </div>
+        ${encoderTraceHtml(enc)}
+        ${decoderHtml}
+        <div class="flex justify-start">
+          <div class="max-w-[80%] rounded-2xl rounded-bl-sm bg-emerald-500/20 border border-emerald-400/40 text-emerald-100 px-4 py-3">
+            <div class="text-[11px] uppercase tracking-wide text-emerald-300/80 mb-1">🤖 Paper AI says</div>
+            <div class="text-lg font-bold">${escapeHtml(replyText)}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/* =====================================================================
+   GLUE
+   ===================================================================== */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function renderAll(rebuildVocabInputs = true) {
+  if (rebuildVocabInputs) renderVocab();
+  renderTraining();
+  renderPalette();
+  renderMessage();
+}
+
+// initial paint
+renderVocab();
+renderTraining();
+renderPalette();
+renderMessage();
+
+// vocab toolbar
+document.getElementById("resetVocab").addEventListener("click", () => {
+  vocab = DEFAULT_VOCAB.map(v => ({ ...v }));
+  renderAll(true);
+});
+document.getElementById("addWord").addEventListener("click", () => {
+  const w = document.getElementById("newWord").value.trim();
+  let v = parseFloat(document.getElementById("newVal").value);
+  if (!w) return;
+  if (isNaN(v)) v = 0;
+  if (vocab.some(x => x.word === w)) { alert("That word is already in the vocabulary."); return; }
+  vocab.push({ word: w, value: v });
+  document.getElementById("newWord").value = "";
+  document.getElementById("newVal").value = "";
+  renderAll(true);
+});
+document.getElementById("newWord").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("addWord").click(); });
+document.getElementById("newVal").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("addWord").click(); });
+
+// playground toolbar
+document.getElementById("runInfer").addEventListener("click", runInference);
+document.getElementById("clearMsg").addEventListener("click", () => { message = []; renderMessage(); document.getElementById("inferOutput").innerHTML = ""; });
+</script>
+</body>
+</html>
